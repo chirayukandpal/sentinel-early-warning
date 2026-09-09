@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentinel-AI | Hyperlocal Nowcasting</title>
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet Map Engine -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body { background-color: #0B0F17; }
+    .leaflet-container { height: 100%; width: 100%; background: #0B0F17 !important; }
+  </style>
+</head>
+<body class="h-screen w-screen text-slate-100 flex overflow-hidden font-sans">
+
+  <!-- LEFT: Interactive Vector Map -->
+  <div class="relative flex-1 h-full">
+
+    <!-- Top Ops Banner -->
+    <div class="absolute top-4 left-6 z-[1000] flex items-center gap-3 bg-[#121826]/90 backdrop-blur-md px-4 py-2.5 rounded-xl border border-slate-700/60 shadow-2xl">
+      <div class="p-2 bg-red-500/20 text-red-400 rounded-lg animate-pulse">
+        <i data-lucide="cloud-lightning" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h1 class="text-xs font-bold uppercase tracking-wider text-slate-200">Sentinel-AI Nowcasting Ops</h1>
+        <p class="text-[11px] text-slate-400">Silchar Urban Catchment • Assam Flash Flood Grid</p>
+      </div>
+      <span class="ml-2 px-2 py-0.5 text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full">
+        INSAT-3DS LIVE
+      </span>
+    </div>
+
+    <!-- Top Layer Filters -->
+    <div class="absolute top-4 right-6 z-[1000] flex bg-[#121826]/90 backdrop-blur-md p-1 rounded-xl border border-slate-700/60 text-xs">
+      <button onclick="setLayer('ALL')" id="btn-ALL" class="px-3 py-1.5 rounded-lg font-medium bg-indigo-600 text-white transition">Combined Risk</button>
+      <button onclick="setLayer('RAIN')" id="btn-RAIN" class="px-3 py-1.5 rounded-lg font-medium text-slate-400 hover:text-white transition">Convective Rain</button>
+      <button onclick="setLayer('FLOOD')" id="btn-FLOOD" class="px-3 py-1.5 rounded-lg font-medium text-slate-400 hover:text-white transition">Inundation Depth</button>
+    </div>
+
+    <!-- Map Canvas -->
+    <div id="map" class="h-full w-full"></div>
+
+    <!-- Bottom Time Scrubber -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] w-11/12 max-w-xl bg-[#121826]/90 backdrop-blur-md p-4 rounded-2xl border border-slate-700/60 shadow-2xl">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+          <i data-lucide="clock" class="w-3.5 h-3.5 text-indigo-400"></i> Nowcast Lead Horizon
+        </span>
+        <span id="lead-time-pill" class="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+          Horizon: T+2 hours
+        </span>
+      </div>
+      <div class="grid grid-cols-4 gap-2">
+        <button onclick="setTimestep('T+0')" id="step-T+0" class="step-btn py-2 text-xs font-bold rounded-lg border bg-slate-800/60 border-slate-700 text-slate-400">T+0 (Live)</button>
+        <button onclick="setTimestep('T+2')" id="step-T+2" class="step-btn py-2 text-xs font-bold rounded-lg border bg-indigo-600 border-indigo-400 text-white shadow-lg">T+2h</button>
+        <button onclick="setTimestep('T+4')" id="step-T+4" class="step-btn py-2 text-xs font-bold rounded-lg border bg-slate-800/60 border-slate-700 text-slate-400">T+4h</button>
+        <button onclick="setTimestep('T+6')" id="step-T+6" class="step-btn py-2 text-xs font-bold rounded-lg border bg-slate-800/60 border-slate-700 text-slate-400">T+6h</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Telemetry Panel -->
+  <div class="w-[420px] h-full bg-[#0F1420] border-l border-slate-800 flex flex-col justify-between p-6 z-10 overflow-y-auto">
+    <div class="space-y-6">
+      <div>
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-mono tracking-wider text-slate-400 uppercase">Hyperlocal Telemetry</span>
+          <span id="ward-risk-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-red-500/20 text-red-400 border-red-500/40">
+            CRITICAL RISK
+          </span>
+        </div>
+        <h2 id="ward-name" class="text-lg font-bold text-white mt-1 flex items-center gap-1.5">
+          <i data-lucide="map-pin" class="w-4 h-4 text-red-400"></i> Ward 7 - Bethukandi Basin
+        </h2>
+      </div>
+
+      <!-- Live Readouts -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+          <div class="text-[11px] text-slate-400">Precipitation Rate</div>
+          <div class="text-xl font-black text-white mt-1">
+            <span id="val-rain">85.5</span> <span class="text-xs font-normal text-slate-400">mm/h</span>
+          </div>
+          <div class="text-[10px] text-indigo-400 mt-1">Convective Peak</div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+          <div class="text-[11px] text-slate-400">Est. Water Inundation</div>
+          <div class="text-xl font-black text-red-400 mt-1">
+            <span id="val-flood">1.35</span> <span class="text-xs font-normal text-slate-400">m</span>
+          </div>
+          <div class="text-[10px] text-slate-500 mt-1">CartoDEM Runoff Risk</div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+          <div class="text-[11px] text-slate-400">Cloud-Top Temp (IR)</div>
+          <div class="text-xl font-bold text-amber-300 mt-1">
+            <span id="val-temp">-63</span>°C
+          </div>
+          <div class="text-[10px] text-amber-500/80 mt-1">Updraft Cooling</div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
+          <div class="text-[11px] text-slate-400">CAPE Instability</div>
+          <div class="text-xl font-bold text-indigo-300 mt-1">
+            <span id="val-cape">4408</span> <span class="text-xs font-normal text-slate-400">J/kg</span>
+          </div>
+          <div class="text-[10px] text-indigo-400/80 mt-1">Severe Convection</div>
+        </div>
+      </div>
+
+      <!-- Explainability Card -->
+      <div class="bg-slate-900/60 border border-slate-800/80 p-4 rounded-xl space-y-3">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+          <i data-lucide="activity" class="w-3.5 h-3.5 text-indigo-400"></i> Explainable Hazard Engine
+        </h3>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Elevation is <span id="val-elevation" class="text-slate-200 font-semibold">19.8m</span> with compromised drainage. Coupled with cloud-top cooling ($< -60^\circ\text{C}$), this gives an advance warning window of 
+          <strong class="text-amber-300">3.2 hours</strong> before river embankment breaches occur.
+        </p>
+        <div class="flex items-center justify-between text-[11px] pt-1 text-slate-500 border-t border-slate-800">
+          <span>AI Model Confidence:</span>
+          <span id="val-confidence" class="font-mono text-emerald-400 font-bold">91.4%</span>
+        </div>
+      </div>
+
+      <!-- Alert Trigger Button -->
+      <button onclick="triggerCapModal()" class="w-full py-3 px-4 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-semibold text-xs rounded-xl shadow-lg shadow-red-900/40 border border-red-500/50 flex items-center justify-center gap-2 transition">
+        <i data-lucide="send" class="w-4 h-4"></i> Dispatch Automated NDMA-CAP Alert
+      </button>
+    </div>
+
+    <div class="pt-4 border-t border-slate-800 text-[10px] text-slate-500 text-center">
+      Sentinel-AI Platform • Standalone Prototype Engine
+    </div>
+  </div>
+
+  <!-- Common Alerting Protocol Modal -->
+  <div id="cap-modal" class="fixed inset-0 z-[2000] bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-[#131B2E] border border-red-500/40 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-start">
+        <div class="flex items-center gap-2 text-red-400">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+          <span class="font-mono text-xs font-bold uppercase tracking-wider">CAP XML Protocol Generated</span>
+        </div>
+        <button onclick="closeCapModal()" class="text-slate-400 hover:text-white text-sm font-bold">✕</button>
+      </div>
+      <div>
+        <h3 id="modal-headline" class="font-bold text-white text-base">FLASH FLOOD NOWCAST: 3h Lead Time for Silchar Basin</h3>
+        <p id="modal-id" class="text-[11px] text-slate-400 font-mono mt-0.5"></p>
+      </div>
+      <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 space-y-2 text-xs">
+        <div><strong class="text-slate-300">Target Zone:</strong> <span id="modal-target" class="text-slate-400">Ward 7 - Bethukandi Basin</span></div>
+        <div><strong class="text-slate-300">Action Window:</strong> <span class="text-amber-400 font-semibold">3.2 Hours Actionable Buffer</span></div>
+        <div class="pt-2 border-t border-slate-800">
+          <strong class="text-slate-300 block mb-1">Standard Operating Directives:</strong>
+          <ul class="text-slate-400 space-y-1 text-[11px] list-disc pl-4">
+            <li>Stage mobile high-capacity dewatering pumps at the Bethukandi dyke.</li>
+            <li>Initiate preventative highland livestock evacuation.</li>
+            <li>Deploy municipal ward-level broadcast alerts.</li>
+          </ul>
+        </div>
+      </div>
+      <button onclick="closeCapModal()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium transition">
+        Acknowledge Transmission
+      </button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
