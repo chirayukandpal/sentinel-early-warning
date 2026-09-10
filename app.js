@@ -35,10 +35,14 @@ const WARDS = [
 ];
 
 const TIMESTEP_DATA = {
-  "T+0": { rain: 18.0, tempShift: 0, cape: 1850 },
-  "T+2": { rain: 45.0, tempShift: -18, cape: 2900 },
-  "T+4": { rain: 92.0, tempShift: -34, cape: 4100 },
-  "T+6": { rain: 38.0, tempShift: -15, cape: 2400 }
+  // T+0: Completely calm / normal pre-monsoon conditions (Zero risk, gauges calm)
+  "T+0": { rain: 2.0, tempShift: 20, cape: 650 }, 
+  // T+2: Convective cloud-top cooling starts aloft (Warning stage)
+  "T+2": { rain: 42.0, tempShift: -18, cape: 2900 },
+  // T+4: Peak cloudburst & flash flood failure (Critical disaster stage)
+  "T+4": { rain: 95.0, tempShift: -34, cape: 4100 },
+  // T+6: Storm dissipates but low basins remain submerged
+  "T+6": { rain: 35.0, tempShift: -15, cape: 2400 }
 };
 
 let currentStep = "T+2";
