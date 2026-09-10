@@ -58,6 +58,20 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 
 function calculateMetrics(ward, step) {
   const cfg = TIMESTEP_DATA[step];
+
+  // At T+0, enforce baseline normal telemetry across all wards
+  if (step === "T+0") {
+    return {
+      rain: (cfg.rain * 0.8).toFixed(1),      // ~1.6 mm/hr (light drizzle/normal)
+      temp: -25,                              // Warm cloud tops: no convective updraft
+      cape: Math.round(cfg.cape),             // Low convective energy
+      inundation: "0.00",                     // No standing water
+      risk: "NORMAL",                         // Green status
+      confidence: "98.5"
+    };
+  }
+
+  // T+2 to T+6 progression
   const rain = (cfg.rain * ward.sensitivity).toFixed(1);
   const temp = -45 + cfg.tempShift;
   const cape = Math.round(cfg.cape * ward.sensitivity * 0.8);
@@ -75,14 +89,17 @@ function calculateMetrics(ward, step) {
 
 function getColor(metrics) {
   if (activeLayer === "FLOOD") {
-    if (metrics.inundation > 1.0) return "#EF4444";
-    if (metrics.inundation > 0.5) return "#F97316";
-    return "#3B82F6";
+    if (metrics.inundation > 1.0) return "#EF4444"; // Red
+    if (metrics.inundation > 0.5) return "#F97316"; // Orange
+    if (metrics.inundation > 0.1) return "#3B82F6"; // Blue
+    return "#10B981"; // Safe Green
   }
-  if (metrics.risk === "CRITICAL") return "#EF4444";
-  if (metrics.risk === "HIGH") return "#F97316";
-  if (metrics.risk === "MODERATE") return "#FBBF24";
-  return "#10B981";
+
+  // Combined and Convective Rain layers
+  if (metrics.risk === "CRITICAL") return "#EF4444"; // Red
+  if (metrics.risk === "HIGH")     return "#F97316"; // Orange
+  if (metrics.risk === "MODERATE") return "#FBBF24"; // Yellow
+  return "#10B981";                                  // Emerald Green for NORMAL & LOW
 }
 
 function updateMap() {
